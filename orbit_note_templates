@@ -1,0 +1,109 @@
+# Project Note Template
+---
+title: {{title}}
+type: project
+created: {{date}}
+satellites: []
+---
+
+# {{title}}
+
+## Overview
+
+Project dashboard for {{title}}.
+
+## Sources
+
+```dataview
+TABLE file.ctime as Created
+FROM "{{project_path}}/9-source"
+SORT file.ctime DESC
+```
+
+## Notes
+
+```dataview
+TABLE type, file.ctime as Created
+FROM "{{project_path}}/0-inbox"
+SORT file.ctime DESC
+```
+
+---
+
+# Dust Note Template
+---
+title: {{title}}
+type: dust
+created: {{date}}
+orbits: {{parent_project}}
+---
+
+# {{title}}
+
+## Notes
+
+New dust note orbiting {{parent_project}}.
+
+---
+
+# Source Note Template
+---
+title: {{title}}
+type: source
+created: {{date}}
+orbits: {{parent_project}}
+source: {{source_url}}
+---
+
+# {{title}}
+
+## Source
+
+[{{title}}]({{source_url}})
+
+## Notes
+
+Source material for {{parent_project}}.
+
+---
+
+# Domain Dashboard Template
+---
+title: {{domain_name}}
+type: domain
+created: {{date}}
+---
+
+# {{domain_name}} Dashboard
+
+## Overview
+
+Main dashboard for {{domain_name}} domain.
+
+## Designated Projects
+
+```dataview
+TABLE satellites as "Sub-Projects", created
+FROM "{{domain_path}}"
+WHERE type = "project" AND contains(file.folder, "{{domain_path}}")
+SORT file.name ASC
+```
+
+## Inbox Projects
+
+```dataview
+TABLE orbits as "Parent Projects", created
+FROM "{{domain_path}}/.0-inbox"
+WHERE type = "project"
+SORT file.name ASC
+```
+
+## Recent Notes
+
+```dataview
+TABLE type, orbits as "Projects", created
+FROM "{{domain_path}}"
+WHERE type != "project" AND type != "domain"
+SORT created DESC
+LIMIT 10
+```

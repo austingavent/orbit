@@ -1,0 +1,212 @@
+# ORBIT System Installation Guide
+
+This guide will help you set up the ORBIT system using Python Watchdog to automatically manage your knowledge architecture in Obsidian.
+
+## Prerequisites
+
+1. **Python 3.7+** - Make sure you have Python installed on your system
+2. **Obsidian** - The note-taking app where your vault is stored
+3. **Pip** - Python's package manager to install dependencies
+
+## Installation Steps
+
+### 1. Install Required Python Packages
+
+Open a terminal/command prompt and run:
+
+```bash
+pip install watchdog pyyaml
+```
+
+### 2. Create Project Structure
+
+Create a new directory for your ORBIT system files:
+
+```bash
+mkdir orbit-system
+cd orbit-system
+```
+
+### 3. Add Script Files
+
+Download or create the following files in your `orbit-system` directory:
+
+- `orbit_config.py` - Configuration settings
+- `orbit_watchdog.py` - Main watchdog script
+
+### 4. Configure Your System
+
+Edit the `orbit_config.py` file to specify your Obsidian vault path and domain structure:
+
+```python
+# Path to your Obsidian vault
+VAULT_PATH = "/path/to/your/obsidian/vault"
+
+# Domain folders (hundreds)
+DOMAINS = {
+    "200": "health",
+    "300": "work",
+    "400": "personal",
+    # Add more domains as needed
+}
+```
+
+### 5. Set Up Your Domain Structure
+
+In your Obsidian vault, create the top-level domain folders as configured:
+
+- `200-health`
+- `300-work` 
+- `400-personal`
+- etc.
+
+### 6. Create Template Files
+
+Create templates for your note types in Obsidian (you can place these in a `templates` folder):
+
+1. Project template
+2. Dust (thought) template 
+3. Source template
+4. Domain dashboard template
+
+### 7. Running the Watchdog
+
+To start the ORBIT system, run:
+
+```bash
+python orbit_watchdog.py
+```
+
+The script will start watching your Obsidian vault for changes.
+
+### 8. Setting Up Auto-Start (Optional)
+
+#### Windows
+
+1. Create a batch file `start_orbit.bat`:
+   ```bat
+   @echo off
+   cd C:\path\to\orbit-system
+   python orbit_watchdog.py
+   ```
+
+2. Add this batch file to your startup folder:
+   - Press `Win+R`, type `shell:startup`, and press Enter
+   - Copy or create a shortcut to your batch file in this folder
+
+#### macOS
+
+1. Create a `com.orbit.watchdog.plist` file:
+   ```xml
+   <?xml version="1.0" encoding="UTF-8"?>
+   <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+   <plist version="1.0">
+   <dict>
+       <key>Label</key>
+       <string>com.orbit.watchdog</string>
+       <key>ProgramArguments</key>
+       <array>
+           <string>/usr/bin/python3</string>
+           <string>/path/to/orbit-system/orbit_watchdog.py</string>
+       </array>
+       <key>RunAtLoad</key>
+       <true/>
+       <key>KeepAlive</key>
+       <true/>
+       <key>StandardOutPath</key>
+       <string>/path/to/orbit-system/orbit.log</string>
+       <key>StandardErrorPath</key>
+       <string>/path/to/orbit-system/orbit-error.log</string>
+   </dict>
+   </plist>
+   ```
+
+2. Move this file to your LaunchAgents folder:
+   ```bash
+   mv com.orbit.watchdog.plist ~/Library/LaunchAgents/
+   ```
+
+3. Load the service:
+   ```bash
+   launchctl load ~/Library/LaunchAgents/com.orbit.watchdog.plist
+   ```
+
+#### Linux
+
+1. Create a systemd service file:
+   ```
+   [Unit]
+   Description=ORBIT Watchdog Service
+   After=network.target
+
+   [Service]
+   Type=simple
+   User=yourusername
+   WorkingDirectory=/path/to/orbit-system
+   ExecStart=/usr/bin/python3 /path/to/orbit-system/orbit_watchdog.py
+   Restart=on-failure
+
+   [Install]
+   WantedBy=multi-user.target
+   ```
+
+2. Save this as `/etc/systemd/system/orbit-watchdog.service`
+
+3. Enable and start the service:
+   ```bash
+   sudo systemctl enable orbit-watchdog
+   sudo systemctl start orbit-watchdog
+   ```
+
+## Using the ORBIT System
+
+### Creating New Notes
+
+1. Create a new note in any domain inbox
+2. Add frontmatter with `orbits` property to establish relationships:
+   ```yaml
+   ---
+   title: Glute Bridges
+   type: dust
+   created: 2025-04-16
+   orbits: pelvic health
+   ---
+   ```
+
+3. The note will automatically be moved to the appropriate project folder
+
+### Creating Projects
+
+Projects can be created in two ways:
+
+1. **Directly** - Create a project note with designated numbering
+2. **Emergently** - Create notes that orbit a non-existent project, and it will be created automatically
+
+### Designating Projects
+
+When a floating project is ready to become a designated project:
+
+1. Edit the project note
+2. Set it to orbit a domain:
+   ```yaml
+   orbits: health
+   ```
+3. The system will assign a number and move it to the appropriate location
+
+## Troubleshooting
+
+- Check the log file for errors
+- Ensure your vault path is correct in the configuration
+- Verify that file permissions allow the script to modify your vault
+- Make sure your YAML frontmatter is properly formatted
+
+## Advanced Configuration
+
+See the `orbit_config.py` file for additional settings you can customize:
+
+- Project numbering increment
+- Reserved satellite numbers
+- Maximum satellites per project
+- Hidden inbox directory name
+- Log settings
+- File watching settings

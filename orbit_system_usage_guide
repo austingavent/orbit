@@ -1,0 +1,90 @@
+# ORBIT System Usage Guide
+
+This guide explains how to use the ORBIT system effectively for knowledge management in Obsidian.
+
+## Core Concepts
+
+The ORBIT system is built around these key principles:
+
+1. **Emergent structure** - Structure grows organically from connections between notes
+2. **Every note is born as dust** - New ideas begin unstructured
+3. **Hierarchy grows from center outward** - Children can exist before parents
+4. **Directional relationships matter** - `orbits` points upstream, `satellites` points downstream
+5. **Projects are always folders** - They contain dashboards and associated notes
+
+## Note Types
+
+The ORBIT system uses several note types:
+
+| Type | Description | Stage |
+|------|-------------|-------|
+| `dust` | Default for new thoughts | 0 |
+| `source` | External or reference material | - |
+| `project` | Dashboard + folder holder | - |
+| `original` | Developed original thought | 1 |
+| `connector` | Links multiple concepts | 2 |
+| `ideal` | Refined, complete concept | 3 |
+| `action` | Actionable information | - |
+
+## Directory Structure
+
+The ORBIT system organizes your vault into a hierarchy:
+
+```
+Vault/
+├── 200-health/                  # Domain folder (fixed)
+│   ├── 210-biomechanics/        # Designated project (numbered)
+│   │   ├── 0-inbox/             # Project inbox
+│   │   ├── 9-source/            # Project sources
+│   │   ├── biomechanics.md      # Project dashboard
+│   │   └── ...
+│   ├── .0-inbox/                # Domain inbox (hidden)
+│   │   ├── pelvic-health/       # Floating project
+│   │   │   ├── 0-inbox/         # Project inbox
+│   │   │   ├── 9-source/        # Project sources
+│   │   │   ├── pelvic-health.md # Project dashboard
+│   │   │   └── ...
+│   │   └── ...
+│   └── health.md                # Domain dashboard
+├── 300-work/                    # Another domain folder
+└── ...
+```
+
+## Creating Notes
+
+### Creating a New Thought
+
+1. Create a note in any domain inbox (e.g., `200-health/.0-inbox/`)
+2. Add frontmatter with the following:
+   ```yaml
+   ---
+   title: Glute Bridges
+   type: dust
+   created: 2025-04-16
+   orbits: pelvic health
+   ---
+   ```
+3. The watchdog will:
+   - Create a "pelvic health" project if it doesn't exist
+   - Move the note to the project's inbox
+
+### Multiple Orbit Relationships
+
+You can make a note orbit multiple projects:
+
+```yaml
+orbits: 
+  - pelvic health
+  - exercise
+```
+
+By default, the note will be physically located in the first project's directory, with references in the others.
+
+### Direct Relationship
+
+To specify which project the note should physically reside in:
+
+```yaml
+orbits: 
+  - pelvic health
+  - exercise

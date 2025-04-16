@@ -1,0 +1,125 @@
+# ORBIT Knowledge Architecture System
+
+## Overview
+
+The ORBIT (Organic Relationship-Based Information Taxonomy) system is a knowledge architecture designed for Obsidian that enables emergent structure through relationships rather than predefined hierarchies.
+
+This implementation uses Python Watchdog to automatically:
+- Monitor your Obsidian vault for changes
+- Process relationship metadata (`orbits` and `satellites`)
+- Create project structures and move files to appropriate locations
+- Maintain bidirectional relationships between notes
+
+## Core Philosophy
+
+1. **Emergent structure, not imposed structure**:
+   Notes grow into structure by gaining relationships and relevance over time. Hierarchy emerges from connections, not predefined folders.
+
+2. **Every note is born as dust**:
+   New ideas begin unstructured in domain inboxes, classified as "dust" at stage 0.
+
+3. **Hierarchy grows from the center outward**:
+   A child can exist before the parent. When multiple notes point to a non-existent parent, that project folder will be created.
+
+4. **Directional relationships matter**:
+   - `orbits` points upstream (this note contributes to that project)
+   - `satellites` describes downstream connections (these notes contribute to this project)
+
+5. **Metadata is primary, folders are secondary**:
+   Dataview and field queries drive dashboards and organization.
+
+6. **Projects are always folders**:
+   Contain dashboards, source material, and new ideas in a hidden `.inbox` folder.
+
+7. **Minimal upfront structure**:
+   Top-level domain folders (`200-health`, etc.) are fixed, everything else is emergent.
+
+## Components
+
+This implementation includes:
+
+1. **`orbit_watchdog.py`** - Main Python script that watches your vault
+2. **`orbit_config.py`** - Configuration settings for your ORBIT system
+3. **Note Templates** - For projects, dust notes, and sources
+4. **Installation Guide** - Step-by-step setup instructions
+5. **Usage Guide** - Detailed guidance on using the system
+
+## Technical Architecture
+
+### Folder Structure
+
+```
+Vault/
+├── 200-health/                  # Domain folder (fixed)
+│   ├── 210-biomechanics/        # Designated project (numbered)
+│   │   ├── 0-inbox/             # Project inbox
+│   │   ├── 9-source/            # Project sources
+│   │   ├── biomechanics.md      # Project dashboard
+│   │   └── ...
+│   ├── .0-inbox/                # Domain inbox (hidden)
+│   │   ├── pelvic-health/       # Floating project
+│   │   │   ├── 0-inbox/         # Project inbox
+│   │   │   ├── 9-source/        # Project sources
+│   │   │   ├── pelvic-health.md # Project dashboard
+│   │   │   └── ...
+│   │   └── ...
+│   └── health.md                # Domain dashboard
+├── 300-work/                    # Another domain folder
+└── ...
+```
+
+### Relationship Types
+
+- **`orbits`**: Upstream relationship (this note supports these projects)
+- **`satellites`**: Downstream relationship (these notes support this project)
+- **`direct`**: Specifies physical location when multiple orbits exist
+
+### Note Types
+
+- **`dust`**: Default for new thoughts (stage 0)
+- **`source`**: External or reference material
+- **`project`**: Dashboard + folder holder
+- **`original`**: Developed original thought (stage 1)
+- **`connector`**: Links multiple concepts (stage 2)
+- **`ideal`**: Refined, complete concept (stage 3)
+- **`action`**: Actionable information
+
+## Key Features
+
+1. **Automatic Project Creation**:
+   When a note references a non-existent project, the system creates it automatically.
+
+2. **Bidirectional Relationships**:
+   When a project lists notes as satellites, those notes are created with proper orbit relationships.
+
+3. **Floating vs. Designated Projects**:
+   Projects start as "floating" in domain inboxes, then can be promoted to numbered projects.
+
+4. **Directory Management**:
+   Notes are automatically moved to the appropriate directories based on their relationships.
+
+5. **Dataview Integration**:
+   Project dashboards use Dataview to display related notes and sources.
+
+## Getting Started
+
+See the [Installation Guide](orbit-installation.md) for setup instructions and the [Usage Guide](orbit-usage-guide.md) for detailed information on working with the system.
+
+## Customization
+
+The ORBIT system is highly customizable through the configuration file. You can adjust:
+
+- Domain structure
+- Numbering patterns
+- Note types and stages
+- Directory naming
+
+## Requirements
+
+- Python 3.7+
+- Obsidian
+- Python packages: watchdog, pyyaml
+
+## License
+
+This project is released under the MIT License.
