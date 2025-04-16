@@ -3,7 +3,7 @@ import re
 import time
 import yaml
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from pathlib import Path
@@ -17,12 +17,13 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Configuration
-VAULT_PATH = "/Users/austinavent/Library/CloudStorage/Dropbox/Areas/DASR/DASR"
-
 class Config:
-    # Domain folders (hundreds)
+    # Set this to your Obsidian vault path (corrected)
+    VAULT_PATH = "/Users/austinavent/Library/CloudStorage/Dropbox/Areas/DASR/DASR"
+    
+    # Domain folders (hundreds) - Updated with all domains
     DOMAINS = {
-        "000": "Origins",   
+        "000": "Origins",
         "100": "Self",
         "200": "Health",
         "300": "Philosophy",
@@ -32,7 +33,6 @@ class Config:
         "700": "Environment",
         "800": "Work_systems",
         "900": "Meta_resources",
-        # Add more domains as needed
     }
     
     # Project numbering increment
@@ -46,7 +46,10 @@ class Config:
     MAX_SATELLITES = 8
     
     # Hidden inbox directory name
-    HIDDEN_INBOX = ".0-inbox"
+    INBOX_DIR = ".0-inbox"
+    
+    # Minimum age of file before MOVING (in minutes) - Made configurable
+    MIN_FILE_AGE = 1
     
     # Template paths
     TEMPLATES = {
@@ -59,34 +62,33 @@ class Config:
 
 class OrbitSystem:
     def __init__(self, vault_path):
-        self.vault_path = vault_path
-        self.templates = {}
+        self.vault_path = Path(vault_path)
+        # Load templates first so they're available for domain creation
+        self.templates = self._load_templates()
+        # Then load domains
         self.domains = self._load_domains()
-        
-        # Ensure vault path exists
-        if not os.path.exists(self.vault_path):
-            os.makedirs(self.vault_path)
-            logger.info(f"Created vault directory: {self.vault_path}")
+        # Track file creation times
+        self.file_creation_times = {}
     
     def _load_templates(self):
         """Load template files"""
         templates = {}
         
-        # Default templates if files not found
+        # Default templates if files not found - Updated to use Templater syntax
         default_templates = {
             "project": """---
 type: project
-created: CURRENT_DATE
+created: <% tp.date.now("YYYY-MM-DD") %>
 satellites: []
-domain: DOMAIN_VALUE
+domain: 
 orbits: []
 ---
 
-# PROJECT_TITLE
+# <% tp.file.title %>
 
 ## Overview
 
-Project dashboard for PROJECT_TITLE.
+Project dashboard for <% tp.file.title %>.
 
 ## Sources
 
@@ -103,41 +105,50 @@ TABLE type, file.ctime as Created
 FROM "PROJECT_PATH/0-inbox"
 SORT file.ctime DESC
 ```
+
+## Create New Note
+
+This section contains buttons to create new notes in this project:
+
+- [[Creating a new note in this project|+New Dust Note]]
+- [[Creating a new source note|+New Source]]
 """,
             "dust": """---
 type: dust
-created: CURRENT_DATE
-domain: DOMAIN_VALUE
-orbits: PARENT_PROJECT
+created: <% tp.date.now("YYYY-MM-DD") %>
+domain: 
+orbits: []
+satellites: []
 ---
 
-# NOTE_TITLE
+# <% tp.file.title %>
 
 ## Notes
 
-New dust note orbiting PARENT_PROJECT.
+New note.
 """,
             "source": """---
 type: source
-created: CURRENT_DATE
-domain: DOMAIN_VALUE
-orbits: PARENT_PROJECT
-source: SOURCE_URL
+created: <% tp.date.now("YYYY-MM-DD") %>
+domain: 
+orbits: []
+satellites: []
+source: 
 ---
 
-# SOURCE_TITLE
+# <% tp.file.title %>
 
 ## Source
 
-[SOURCE_TITLE](SOURCE_URL)
+[Source Link]()
 
 ## Notes
 
-Source material for PARENT_PROJECT.
+Source material.
 """,
             "domain": """---
 type: domain
-created: CURRENT_DATE
+created: <% tp.date.now("YYYY-MM-DD") %>
 ---
 
 # DOMAIN_NAME Dashboard
@@ -164,7 +175,17 @@ WHERE type = "project"
 SORT file.name ASC
 ```
 
-## Recent Notes
+## Notes in Inbox
+
+```dataview
+TABLE type, orbits as "Projects", created
+FROM "DOMAIN_PATH/.0-inbox"
+WHERE type != "project" AND type != "domain"
+SORT created DESC
+LIMIT 10
+```
+
+## Recent Notes in Projects
 
 ```dataview
 TABLE type, orbits as "Projects", created
@@ -173,6 +194,10 @@ WHERE type != "project" AND type != "domain"
 SORT created DESC
 LIMIT 10
 ```
+
+## Create New Project
+
+- [[Creating a new project|+New Project]]
 """
         }
         
@@ -221,7 +246,7 @@ LIMIT 10
                 self._create_domain_dashboard(domain_dir, domain_name)
             
             # Ensure hidden inbox exists
-            inbox_path = os.path.join(domain_dir, Config.HIDDEN_INBOX)
+            inbox_path = os.path.join(domain_dir, Config.INBOX_DIR)
             if not os.path.exists(inbox_path):
                 os.makedirs(inbox_path)
                 logger.info(f"Created inbox directory: {inbox_path}")
@@ -237,7 +262,7 @@ LIMIT 10
                     domains[domain_number] = domain_name
                 
                 # Ensure hidden inbox exists
-                inbox_path = os.path.join(self.vault_path, item, Config.HIDDEN_INBOX)
+                inbox_path = os.path.join(self.vault_path, item, Config.INBOX_DIR)
                 if not os.path.exists(inbox_path):
                     os.makedirs(inbox_path)
                     logger.info(f"Created inbox directory: {inbox_path}")
@@ -254,7 +279,7 @@ LIMIT 10
         if not template:
             template = """---
 type: domain
-created: CURRENT_DATE
+created: <% tp.date.now("YYYY-MM-DD") %>
 ---
 
 # DOMAIN_NAME Dashboard
@@ -281,7 +306,17 @@ WHERE type = "project"
 SORT file.name ASC
 ```
 
-## Recent Notes
+## Notes in Inbox
+
+```dataview
+TABLE type, orbits as "Projects", created
+FROM "DOMAIN_PATH/.0-inbox"
+WHERE type != "project" AND type != "domain"
+SORT created DESC
+LIMIT 10
+```
+
+## Recent Notes in Projects
 
 ```dataview
 TABLE type, orbits as "Projects", created
@@ -290,15 +325,15 @@ WHERE type != "project" AND type != "domain"
 SORT created DESC
 LIMIT 10
 ```
+
+## Create New Project
+
+- [[Creating a new project|+New Project]]
 """
-        
-        # Set values for template substitution
-        current_date = datetime.now().strftime('%Y-%m-%d')
         
         # Perform template substitution
         content = template
         content = content.replace('DOMAIN_NAME', domain_name)
-        content = content.replace('CURRENT_DATE', current_date)
         content = content.replace('DOMAIN_PATH', os.path.basename(domain_dir))
         
         # Write the file
@@ -307,31 +342,6 @@ LIMIT 10
             
         logger.info(f"Created domain dashboard: {dashboard_path}")
     
-    def _get_all_directories(self):
-        """Get all directories in the vault for orbit relationship tracking"""
-        directories = {}
-        for root, dirs, _ in os.walk(self.vault_path):
-            for dir_name in dirs:
-                # Skip hidden directories
-                if dir_name.startswith('.'):
-                    continue
-                    
-                # Add to directory mapping
-                full_path = os.path.join(root, dir_name)
-                clean_name = dir_name
-                
-                # Remove numbering for display
-                if re.match(r'^\d+', dir_name) and '-' in dir_name:
-                    clean_name = dir_name.split('-', 1)[1]
-                
-                directories[clean_name.lower()] = {
-                    'name': clean_name,
-                    'path': full_path,
-                    'is_numbered': bool(re.match(r'^\d+', dir_name))
-                }
-        
-        return directories
-    
     def process_file(self, file_path):
         """Process a file when it's created or modified"""
         file_path = Path(file_path)
@@ -339,6 +349,11 @@ LIMIT 10
         # Only process markdown files
         if file_path.suffix.lower() != '.md':
             return
+        
+        # Track file creation time if first time seeing it
+        if str(file_path) not in self.file_creation_times:
+            self.file_creation_times[str(file_path)] = datetime.now()
+            logger.info(f"Tracking new file: {file_path}")
         
         logger.info(f"Processing file: {file_path}")
         
@@ -353,12 +368,21 @@ LIMIT 10
             if domain_value:
                 self._process_domain(file_path, frontmatter, domain_value)
             
-            # Process orbits relationship
-            if 'orbits' in frontmatter:
-                self._process_orbits(file_path, frontmatter)
+            # IMMEDIATELY create project directories for orbit relationships
+            if 'orbits' in frontmatter and frontmatter['orbits']:
+                # First, create all necessary directories without moving the file
+                self._create_orbit_projects(file_path, frontmatter)
                 
+                # Check if file is old enough to move
+                file_age = datetime.now() - self.file_creation_times[str(file_path)]
+                if file_age >= timedelta(minutes=Config.MIN_FILE_AGE):
+                    # Only move if file is old enough
+                    self._process_orbits(file_path, frontmatter, move_file=True)
+                else:
+                    logger.info(f"File {file_path} has orbits but is too new to move, waiting...")
+            
             # Process satellites relationship
-            if 'satellites' in frontmatter:
+            if 'satellites' in frontmatter and frontmatter['satellites']:
                 self._process_satellites(file_path, frontmatter)
                 
         except Exception as e:
@@ -384,9 +408,12 @@ LIMIT 10
             frontmatter_yaml = frontmatter_match.group(1)
             remaining_content = content[frontmatter_match.end():]
             
-            # Parse YAML
+            # Parse YAML - Handle templater syntax by replacing with actual values
             try:
-                frontmatter = yaml.safe_load(frontmatter_yaml)
+                # Fix Templater syntax by replacing with actual values
+                processed_yaml = self._fix_templater_syntax(frontmatter_yaml)
+                frontmatter = yaml.safe_load(processed_yaml)
+                
                 if not frontmatter or not isinstance(frontmatter, dict):
                     logger.info(f"Invalid or empty frontmatter in {file_path}")
                     return None, content
@@ -409,14 +436,24 @@ LIMIT 10
             logger.error(f"Error reading file {file_path}: {str(e)}")
             return None, ""
     
+    def _fix_templater_syntax(self, yaml_str):
+        """Fix Templater syntax by replacing with actual values"""
+        # Replace date template with actual date
+        yaml_str = re.sub(r'<% tp\.date\.now\([^\)]*\) %>', datetime.now().strftime('%Y-%m-%d'), yaml_str)
+        
+        # Replace other templater tags with empty strings
+        yaml_str = re.sub(r'<% [^%]+ %>', '', yaml_str)
+        
+        return yaml_str
+    
     def _attempt_yaml_fix(self, yaml_str):
         """Attempt to fix common YAML syntax errors"""
         # Fix for unclosed brackets in satellites or orbits lists
         yaml_str = re.sub(r'satellites: *{([^}]*?)$', r'satellites: [\1]', yaml_str)
         yaml_str = re.sub(r'orbits: *{([^}]*?)$', r'orbits: [\1]', yaml_str)
         
-        # Fix for template placeholders
-        yaml_str = re.sub(r'[A-Z_]+', '', yaml_str)
+        # Fix for Templater syntax
+        yaml_str = self._fix_templater_syntax(yaml_str)
         
         return yaml_str
     
@@ -454,14 +491,179 @@ LIMIT 10
             logger.info(f"Created domain directory: {domain_path}")
             
             # Create hidden inbox
-            inbox_path = os.path.join(domain_path, Config.HIDDEN_INBOX)
+            inbox_path = os.path.join(domain_path, Config.INBOX_DIR)
             os.makedirs(inbox_path)
             logger.info(f"Created inbox directory: {inbox_path}")
             
             # Create domain dashboard
             self._create_domain_dashboard(domain_path, domain_name)
     
-    def _process_orbits(self, file_path, frontmatter):
+    def _create_orbit_projects(self, file_path, frontmatter):
+        """Create project directories for orbit relationships without moving the file"""
+        orbits = frontmatter.get('orbits', [])
+        if not orbits:
+            return
+            
+        # Handle different formats
+        if isinstance(orbits, str):
+            orbits = [orbits]
+        elif isinstance(orbits, dict):
+            # Handle format like {item1, item2} which becomes a dict with keys
+            orbits = list(orbits.keys())
+            
+        # Get domain from frontmatter or file path
+        domain_value = frontmatter.get('domain', None)
+        file_domain = self._get_domain_from_path(file_path)
+        
+        # Get direct relationship if specified
+        direct = frontmatter.get('direct', None)
+        
+        # Create each orbit project directory
+        for orbit in orbits:
+            if orbit and isinstance(orbit, str):  # Validate orbit value
+                self._create_orbit_project(file_path, orbit, domain_value or file_domain, direct == orbit)
+    
+    def _create_orbit_project(self, file_path, orbit, domain_folder, is_direct=False):
+        """Create a project directory for an orbit relationship without moving any files"""
+        if not orbit:
+            return
+            
+        # Check if this is a designated project (has number)
+        is_designated = re.match(r'^\d+', orbit) is not None
+        
+        # If no domain folder provided, try to determine it
+        if not domain_folder:
+            for domain_num, domain_name in self.domains.items():
+                if orbit.lower() == domain_name.lower() or (is_designated and orbit.startswith(domain_num)):
+                    domain_folder = f"{domain_num}-{domain_name}"
+                    break
+            
+            if not domain_folder:
+                # Try to find existing project with this name
+                project_path = self._find_existing_project(orbit)
+                if project_path:
+                    domain_folder = self._get_domain_from_path(project_path)
+                else:
+                    # Use the first domain as default if none specified
+                    domain_num, domain_name = next(iter(self.domains.items()))
+                    domain_folder = f"{domain_num}-{domain_name}"
+                    logger.warning(f"Using default domain {domain_folder} for orbit: {orbit}")
+        
+        # Ensure domain format is correct (e.g., "200-Health")
+        if not re.match(r'^\d{3}-', domain_folder):
+            for domain_num, domain_name in self.domains.items():
+                if domain_folder.lower() == domain_name.lower():
+                    domain_folder = f"{domain_num}-{domain_name}"
+                    break
+        
+        # Create project folder and notes
+        if is_designated:
+            # This is a numbered project
+            project_path = os.path.join(self.vault_path, domain_folder, orbit)
+            
+            # Create project dashboard if it doesn't exist
+            project_name = orbit.split('-', 1)[1] if '-' in orbit else orbit
+            project_note_path = os.path.join(project_path, f"{project_name}.md")
+        else:
+            # Check if this should be a numbered project (if orbital a domain)
+            domain_name = domain_folder.split('-')[1]
+            if orbit.lower() != domain_name.lower() and not is_designated:
+                # Look for existing project
+                existing_project = self._find_existing_project(orbit)
+                if existing_project:
+                    # Use existing project
+                    project_path = os.path.dirname(existing_project)
+                    project_note_path = existing_project
+                else:
+                    # Create a new floating project 
+                    project_path = os.path.join(self.vault_path, domain_folder, Config.INBOX_DIR, orbit)
+                    project_note_path = os.path.join(project_path, f"{orbit}.md")
+            else:
+                # This is a floating project
+                project_path = os.path.join(self.vault_path, domain_folder, Config.INBOX_DIR, orbit)
+                project_note_path = os.path.join(project_path, f"{orbit}.md")
+        
+        # Create the directories if they don't exist
+        if not os.path.exists(project_path):
+            os.makedirs(project_path, exist_ok=True)
+            logger.info(f"Created project directory: {project_path}")
+            
+            # Create inbox folder
+            inbox_path = os.path.join(project_path, f"{Config.INBOX_NUMBER}-inbox")
+            os.makedirs(inbox_path, exist_ok=True)
+            
+            # Create source folder
+            source_path = os.path.join(project_path, f"{Config.SOURCE_NUMBER}-source")
+            os.makedirs(source_path, exist_ok=True)
+        
+        # Create project note if it doesn't exist
+        if not os.path.exists(project_note_path):
+            self._create_project_note(project_note_path, orbit, domain_folder)
+            
+            # Add the file as a satellite to the project note
+            self._add_as_satellite(project_note_path, file_path)
+    
+    def _find_existing_project(self, project_name):
+        """Find an existing project by name (case insensitive)"""
+        for root, dirs, files in os.walk(self.vault_path):
+            for file in files:
+                if file.lower() == f"{project_name.lower()}.md":
+                    return os.path.join(root, file)
+        return None
+    
+    def _add_as_satellite(self, project_path, note_path):
+        """Add a note as a satellite to a project note"""
+        try:
+            # Read the project file
+            frontmatter, content = self._read_file_with_frontmatter(project_path)
+            if not frontmatter:
+                return
+                
+            # Get the note name without extension
+            note_name = os.path.basename(note_path).replace('.md', '')
+            
+            # Get existing satellites
+            satellites = frontmatter.get('satellites', [])
+            if isinstance(satellites, str):
+                satellites = [satellites]
+                
+            # Add note as satellite if not already there
+            if note_name not in satellites:
+                satellites.append(note_name)
+                frontmatter['satellites'] = satellites
+                
+                # Update the project file
+                self._update_frontmatter(project_path, frontmatter, content)
+                logger.info(f"Added {note_name} as satellite to {project_path}")
+        except Exception as e:
+            logger.error(f"Error adding satellite to {project_path}: {str(e)}")
+    
+    def _update_frontmatter(self, file_path, frontmatter, content):
+        """Update the frontmatter of a file"""
+        try:
+            # Create new frontmatter
+            new_frontmatter_yaml = yaml.dump(frontmatter, default_flow_style=False)
+            new_content = f"---\n{new_frontmatter_yaml}---\n{content}"
+            
+            # Write back to file
+            with open(file_path, 'w', encoding='utf-8') as file:
+                file.write(new_content)
+                
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error updating frontmatter in {file_path}: {str(e)}")
+            return False
+    
+    def _get_domain_from_path(self, file_path):
+        """Extract domain from file path"""
+        file_parts = str(file_path).split(os.sep)
+        for part in file_parts:
+            if re.match(r'^\d{3}-', part):
+                return part
+        return None
+    
+    def _process_orbits(self, file_path, frontmatter, move_file=True):
         """Process orbits relationship from a note"""
         orbits = frontmatter.get('orbits', [])
         if not orbits:
@@ -484,17 +686,9 @@ LIMIT 10
         # Process each orbit
         for orbit in orbits:
             if orbit and isinstance(orbit, str):  # Validate orbit value
-                self._handle_orbit_relationship(file_path, orbit, direct, domain_value or file_domain)
+                self._handle_orbit_relationship(file_path, orbit, direct, domain_value or file_domain, move_file)
     
-    def _get_domain_from_path(self, file_path):
-        """Extract domain from file path"""
-        file_parts = str(file_path).split(os.sep)
-        for part in file_parts:
-            if re.match(r'^\d{3}-', part):
-                return part
-        return None
-    
-    def _handle_orbit_relationship(self, file_path, orbit, direct, domain_folder):
+    def _handle_orbit_relationship(self, file_path, orbit, direct, domain_folder, move_file=True):
         """Handle a single orbit relationship"""
         if not orbit:
             return
@@ -510,10 +704,15 @@ LIMIT 10
                     break
             
             if not domain_folder:
-                # Use the first domain as default if none specified
-                domain_num, domain_name = next(iter(self.domains.items()))
-                domain_folder = f"{domain_num}-{domain_name}"
-                logger.warning(f"Using default domain {domain_folder} for orbit: {orbit}")
+                # Try to find existing project
+                project_path = self._find_existing_project(orbit)
+                if project_path:
+                    domain_folder = self._get_domain_from_path(project_path)
+                else:
+                    # Use the first domain as default
+                    domain_num, domain_name = next(iter(self.domains.items()))
+                    domain_folder = f"{domain_num}-{domain_name}"
+                    logger.warning(f"Using default domain {domain_folder} for orbit: {orbit}")
         
         # Ensure domain format is correct (e.g., "200-Health")
         if not re.match(r'^\d{3}-', domain_folder):
@@ -522,49 +721,46 @@ LIMIT 10
                     domain_folder = f"{domain_num}-{domain_name}"
                     break
         
-        # Create project folder and notes
+        # Get project paths
         if is_designated:
             # This is a numbered project
             project_path = os.path.join(self.vault_path, domain_folder, orbit)
-            
-            # Create project dashboard if it doesn't exist
             project_name = orbit.split('-', 1)[1] if '-' in orbit else orbit
-            project_note_path = os.path.join(project_path, f"{project_name}.md")
         else:
-            # This is a floating project
-            project_path = os.path.join(self.vault_path, domain_folder, Config.HIDDEN_INBOX, orbit)
-            
-            # Create project note if it doesn't exist
-            project_note_path = os.path.join(project_path, f"{orbit}.md")
+            # Look for existing project
+            existing_project = self._find_existing_project(orbit)
+            if existing_project:
+                project_path = os.path.dirname(existing_project)
+                project_name = orbit
+            else:
+                # This is a floating project
+                project_path = os.path.join(self.vault_path, domain_folder, Config.INBOX_DIR, orbit)
+                project_name = orbit
         
-        # Create the directories if they don't exist
-        if not os.path.exists(project_path):
-            os.makedirs(project_path, exist_ok=True)
-            logger.info(f"Created project directory: {project_path}")
-            
-            # Create inbox folder
-            inbox_path = os.path.join(project_path, f"{Config.INBOX_NUMBER}-inbox")
-            os.makedirs(inbox_path, exist_ok=True)
-            
-            # Create source folder
-            source_path = os.path.join(project_path, f"{Config.SOURCE_NUMBER}-source")
-            os.makedirs(source_path, exist_ok=True)
-        
-        # Create project note if it doesn't exist
-        if not os.path.exists(project_note_path):
-            self._create_project_note(project_note_path, orbit, domain_folder)
-        
-        # Handle direct relationship or determine where the file should go
-        if direct and direct != '*':
-            # Move to the directly specified orbit
-            if direct == orbit:
+        # Move the file if requested
+        if move_file:
+            # Handle direct relationship or determine where the file should go
+            if direct and direct != '*':
+                # Move to the directly specified orbit
+                if direct == orbit:
+                    self._move_file_to_project(file_path, project_path)
+            elif direct == '*':
+                # Move to all orbit directories (create copies or links)
                 self._move_file_to_project(file_path, project_path)
-        elif direct == '*':
-            # Move to all orbit directories (create copies or links)
-            self._move_file_to_project(file_path, project_path)
-        else:
-            # Default behavior - move to the first orbit
-            self._move_file_to_project(file_path, project_path)
+            else:
+                # Default behavior - move to the first orbit or the specified direct orbit
+                if direct:
+                    # Find the direct project
+                    direct_project = self._find_existing_project(direct)
+                    if direct_project:
+                        direct_path = os.path.dirname(direct_project)
+                        self._move_file_to_project(file_path, direct_path)
+                    else:
+                        # Move to first orbit
+                        self._move_file_to_project(file_path, project_path)
+                else:
+                    # Move to first orbit
+                    self._move_file_to_project(file_path, project_path)
     
     def _move_file_to_project(self, file_path, project_path):
         """Move a file to the appropriate project folder"""
@@ -603,6 +799,13 @@ LIMIT 10
             # Rename (move) the file
             os.rename(file_path, target_path)
             logger.info(f"Moved {file_path} to {target_path}")
+            
+            # Update the tracking time for the new path
+            self.file_creation_times[str(target_path)] = self.file_creation_times.get(str(file_path), datetime.now())
+            # Remove the old path from tracking
+            if str(file_path) in self.file_creation_times:
+                del self.file_creation_times[str(file_path)]
+                
         except Exception as e:
             logger.error(f"Error moving file {file_path} to {target_path}: {str(e)}")
     
@@ -647,6 +850,9 @@ LIMIT 10
             # Create a new note
             self._create_satellite_note(satellite_path, satellite, project_name, domain_folder)
             logger.info(f"Created satellite note: {satellite_path}")
+            
+            # Track the new file's creation time
+            self.file_creation_times[str(satellite_path)] = datetime.now()
     
     def _create_project_note(self, file_path, project_name, domain_folder):
         """Create a new project note"""
@@ -657,17 +863,17 @@ LIMIT 10
                 logger.warning("Project template not found, using default template")
                 template = """---
 type: project
-created: CURRENT_DATE
+created: <% tp.date.now("YYYY-MM-DD") %>
 satellites: []
 domain: DOMAIN_VALUE
 orbits: []
 ---
 
-# PROJECT_TITLE
+# <% tp.file.title %>
 
 ## Overview
 
-Project dashboard for PROJECT_TITLE.
+Project dashboard for <% tp.file.title %>.
 
 ## Sources
 
@@ -684,6 +890,13 @@ TABLE type, file.ctime as Created
 FROM "PROJECT_PATH/0-inbox"
 SORT file.ctime DESC
 ```
+
+## Create New Note
+
+This section contains buttons to create new notes in this project:
+
+- [[Creating a new note in this project|+New Dust Note]]
+- [[Creating a new source note|+New Source]]
 """
             
             # Determine if this is a designated project
@@ -711,8 +924,8 @@ SORT file.ctime DESC
             
             # Perform template substitution
             content = template
-            content = content.replace('PROJECT_TITLE', clean_project_name)
-            content = content.replace('CURRENT_DATE', current_date)
+            content = content.replace('<% tp.date.now("YYYY-MM-DD") %>', current_date)
+            content = content.replace('<% tp.file.title %>', clean_project_name)
             content = content.replace('PROJECT_PATH', project_path)
             content = content.replace('DOMAIN_VALUE', domain_value)
             
@@ -735,6 +948,10 @@ SORT file.ctime DESC
                 f.write(content)
                 
             logger.info(f"Created project note: {file_path}")
+            
+            # Track the new file's creation time
+            self.file_creation_times[str(file_path)] = datetime.now()
+            
             return True
             
         except Exception as e:
@@ -750,12 +967,13 @@ SORT file.ctime DESC
                 logger.warning("Dust template not found, using default template")
                 template = """---
 type: dust
-created: CURRENT_DATE
+created: <% tp.date.now("YYYY-MM-DD") %>
 domain: DOMAIN_VALUE
 orbits: PARENT_PROJECT
+satellites: []
 ---
 
-# NOTE_TITLE
+# <% tp.file.title %>
 
 ## Notes
 
@@ -772,8 +990,8 @@ New dust note orbiting PARENT_PROJECT.
             
             # Perform template substitution
             content = template
-            content = content.replace('NOTE_TITLE', note_name)
-            content = content.replace('CURRENT_DATE', current_date)
+            content = content.replace('<% tp.date.now("YYYY-MM-DD") %>', current_date)
+            content = content.replace('<% tp.file.title %>', note_name)
             content = content.replace('PARENT_PROJECT', parent_project)
             content = content.replace('DOMAIN_VALUE', domain_value)
             
@@ -813,6 +1031,55 @@ New dust note orbiting PARENT_PROJECT.
             next_number = existing_projects[-1] + Config.PROJECT_INCREMENT
             
         return str(next_number)
+    
+    def promote_project(self, project_path):
+        """Promote a floating project to a designated project with number"""
+        # Get domain from project path
+        domain_folder = self._get_domain_from_path(project_path)
+        if not domain_folder:
+            logger.error(f"Cannot determine domain for project: {project_path}")
+            return False
+            
+        # Get project name
+        project_name = os.path.basename(project_path)
+        
+        # Assign a project number
+        project_number = self.assign_project_number(domain_folder)
+        new_project_name = f"{project_number}-{project_name}"
+        
+        # Create new project path
+        domain_path = os.path.join(self.vault_path, domain_folder)
+        new_project_path = os.path.join(domain_path, new_project_name)
+        
+        # Move the project
+        try:
+            os.rename(project_path, new_project_path)
+            logger.info(f"Promoted project {project_path} to {new_project_path}")
+            
+            # Update the project note
+            project_note_path = os.path.join(new_project_path, f"{project_name}.md")
+            new_note_path = os.path.join(new_project_path, f"{project_name}.md")
+            
+            if os.path.exists(project_note_path):
+                # Read the note
+                frontmatter, content = self._read_file_with_frontmatter(project_note_path)
+                if frontmatter:
+                    # Update the project note (path, etc)
+                    self._update_project_after_promotion(new_note_path, frontmatter, content, new_project_name)
+            
+            return True
+        except Exception as e:
+            logger.error(f"Error promoting project {project_path}: {str(e)}")
+            return False
+    
+    def _update_project_after_promotion(self, note_path, frontmatter, content, new_project_name):
+        """Update a project note after promotion"""
+        # Update frontmatter
+        if 'type' in frontmatter:
+            frontmatter['type'] = 'project'
+        
+        # Write back to file
+        self._update_frontmatter(note_path, frontmatter, content)
 
 
 class OrbitEventHandler(FileSystemEventHandler):
@@ -849,7 +1116,7 @@ class OrbitEventHandler(FileSystemEventHandler):
 
 def main():
     # Get vault path from config
-    vault_path = VAULT_PATH
+    vault_path = Config.VAULT_PATH
     
     if not os.path.exists(vault_path):
         logger.error(f"Vault path does not exist: {vault_path}")

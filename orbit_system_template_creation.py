@@ -13,35 +13,48 @@ logger = logging.getLogger(__name__)
 # Configuration - update this with your vault path
 VAULT_PATH = "/Users/austinavent/Library/CloudStorage/Dropbox/Areas/DASR/DASR"
 
-# Available domains for dropdown selection
+# Available domains
 DOMAINS = {
+    "000": "Origins",
+    "100": "Self",
     "200": "Health",
-    "300": "Work",
-    "400": "Personal",
-    # Add more as needed
+    "300": "Philosophy",
+    "400": "Expression",
+    "500": "Culture",
+    "600": "People",
+    "700": "Environment",
+    "800": "Work_systems",
+    "900": "Meta_resources",
 }
 
 # Templates
 TEMPLATES = {
-    "project_template.md": """---
+    "project_template.md": """<%*
+let title = tp.file.title;
+if (title.startsWith("Untitled")) {
+    title = await tp.system.prompt("Enter Project Title:");
+    await tp.file.rename(title);
+}
+-%>
+---
 type: project
-created: CURRENT_DATE
+created: <% tp.date.now("YYYY-MM-DD") %>
 satellites: []
-domain: DOMAIN_OPTIONS
+domain: 
 orbits: []
 ---
 
-# PROJECT_TITLE
+# <% title %>
 
 ## Overview
 
-Project dashboard for PROJECT_TITLE.
+Project dashboard for <% title %>.
 
 ## Sources
 
 ```dataview
 TABLE file.ctime as Created
-FROM "PROJECT_PATH/9-source"
+FROM "[[<% title %>]]/9-source"
 SORT file.ctime DESC
 ```
 
@@ -49,50 +62,81 @@ SORT file.ctime DESC
 
 ```dataview
 TABLE type, file.ctime as Created
-FROM "PROJECT_PATH/0-inbox"
+FROM "[[<% title %>]]/0-inbox"
 SORT file.ctime DESC
 ```
+
+## Create New Note
+
+This section contains buttons to create new notes in this project:
+
+- [[+New Dust Note]]
+- [[+New Source]]
 """,
-    "dust_template.md": """---
+    "dust_template.md": """<%*
+let title = tp.file.title;
+if (title.startsWith("Untitled")) {
+    title = await tp.system.prompt("Enter Note Title:");
+    await tp.file.rename(title);
+}
+-%>
+---
 type: dust
-created: CURRENT_DATE
-domain: DOMAIN_OPTIONS
-orbits: PARENT_PROJECT
+created: <% tp.date.now("YYYY-MM-DD") %>
+domain: 
+orbits: []
+satellites: []
 ---
 
-# NOTE_TITLE
+# <% title %>
 
 ## Notes
 
-New dust note orbiting PARENT_PROJECT.
+New note.
 """,
-    "source_template.md": """---
+    "source_template.md": """<%*
+let title = tp.file.title;
+if (title.startsWith("Untitled")) {
+    title = await tp.system.prompt("Enter Source Title:");
+    await tp.file.rename(title);
+}
+-%>
+---
 type: source
-created: CURRENT_DATE
-domain: DOMAIN_OPTIONS
-orbits: PARENT_PROJECT
+created: <% tp.date.now("YYYY-MM-DD") %>
+domain: 
+orbits: []
+satellites: []
+source: 
 ---
 
-# SOURCE_TITLE
+# <% title %>
 
 ## Source
 
-[SOURCE_TITLE](SOURCE_URL)
+[Source Link]()
 
 ## Notes
 
-Source material for PARENT_PROJECT.
+Source material.
 """,
-    "domain_template.md": """---
+    "domain_template.md": """<%*
+let title = tp.file.title;
+if (title.startsWith("Untitled")) {
+    title = await tp.system.prompt("Enter Domain Name:");
+    await tp.file.rename(title);
+}
+-%>
+---
 type: domain
-created: CURRENT_DATE
+created: <% tp.date.now("YYYY-MM-DD") %>
 ---
 
-# DOMAIN_NAME Dashboard
+# <% title %> Dashboard
 
 ## Overview
 
-Main dashboard for DOMAIN_NAME domain.
+Main dashboard for <% title %> domain.
 
 ## Designated Projects
 
@@ -112,7 +156,17 @@ WHERE type = "project"
 SORT file.name ASC
 ```
 
-## Recent Notes
+## Notes in Inbox
+
+```dataview
+TABLE type, orbits as "Projects", created
+FROM "DOMAIN_PATH/.0-inbox"
+WHERE type != "project" AND type != "domain"
+SORT created DESC
+LIMIT 10
+```
+
+## Recent Notes in Projects
 
 ```dataview
 TABLE type, orbits as "Projects", created
@@ -121,6 +175,101 @@ WHERE type != "project" AND type != "domain"
 SORT created DESC
 LIMIT 10
 ```
+
+## Create New Project
+
+- [[+New Project]]
+""",
+    # Template for creating new dust notes from project dashboards
+    "new_dust_template.md": """<%*
+let title = await tp.system.prompt("Enter Note Title:");
+await tp.file.rename(title);
+let parentFolder = tp.file.folder(true);
+let parentProject = parentFolder.split('/').pop();
+-%>
+---
+type: dust
+created: <% tp.date.now("YYYY-MM-DD") %>
+domain: 
+orbits: [<% parentProject %>]
+satellites: []
+---
+
+# <% title %>
+
+## Notes
+
+New note orbiting <% parentProject %>.
+""",
+    # Template for creating new source notes from project dashboards
+    "new_source_template.md": """<%*
+let title = await tp.system.prompt("Enter Source Title:");
+await tp.file.rename(title);
+let parentFolder = tp.file.folder(true);
+let parentProject = parentFolder.split('/').pop();
+-%>
+---
+type: source
+created: <% tp.date.now("YYYY-MM-DD") %>
+domain: 
+orbits: [<% parentProject %>]
+satellites: []
+source: 
+---
+
+# <% title %>
+
+## Source
+
+[Source Link]()
+
+## Notes
+
+Source material for <% parentProject %>.
+""",
+    # Template for creating new projects
+    "new_project_template.md": """<%*
+let title = await tp.system.prompt("Enter Project Name:");
+await tp.file.rename(title);
+let parentFolder = tp.file.folder(true);
+let domainName = parentFolder.split('-').pop();
+-%>
+---
+type: project
+created: <% tp.date.now("YYYY-MM-DD") %>
+satellites: []
+domain: <% parentFolder %>
+orbits: [<% domainName %>]
+---
+
+# <% title %>
+
+## Overview
+
+Project dashboard for <% title %>.
+
+## Sources
+
+```dataview
+TABLE file.ctime as Created
+FROM "[[<% title %>]]/9-source"
+SORT file.ctime DESC
+```
+
+## Notes
+
+```dataview
+TABLE type, file.ctime as Created
+FROM "[[<% title %>]]/0-inbox"
+SORT file.ctime DESC
+```
+
+## Create New Note
+
+This section contains buttons to create new notes in this project:
+
+- [[+New Dust Note]]
+- [[+New Source]]
 """
 }
 
@@ -133,18 +282,9 @@ def create_templates():
         os.makedirs(template_dir)
         logger.info(f"Created templates directory: {template_dir}")
     
-    # Create domain option string for templates
-    domain_options = []
-    for num, name in DOMAINS.items():
-        domain_options.append(f"{num}-{name}")
-    domain_options_str = ", ".join(domain_options)
-    
     # Create each template file
     for template_name, template_content in TEMPLATES.items():
         template_path = os.path.join(template_dir, template_name)
-        
-        # Replace domain options placeholder
-        template_content = template_content.replace("DOMAIN_OPTIONS", domain_options_str)
         
         # Check if template already exists
         if os.path.exists(template_path):
@@ -159,6 +299,44 @@ def create_templates():
         except Exception as e:
             logger.error(f"Error creating template {template_path}: {str(e)}")
 
+# Script to create domain buttons for quick access
+def create_domain_buttons():
+    """Create a note with buttons for all domains"""
+    buttons_content = """# ORBIT Domain Buttons
+
+Click any button below to navigate to the domain dashboard:
+
+"""
+    
+    # Add buttons for each domain
+    for domain_num, domain_name in sorted(DOMAINS.items()):
+        buttons_content += f"- [[{domain_num}-{domain_name}/{domain_name}|{domain_num} {domain_name}]]\n"
+    
+    # Add instructions for creating new notes
+    buttons_content += """
+## Creating New Notes
+
+To create a new note:
+1. Navigate to the appropriate domain or project
+2. Use the "+New Note" or "+New Project" buttons at the bottom of the dashboard
+
+## Quick Create
+
+- [[+New Thought]]
+- [[+New Project]]
+- [[+New Source]]
+"""
+    
+    # Write the buttons file
+    buttons_path = os.path.join(VAULT_PATH, "ORBIT-Navigation.md")
+    try:
+        with open(buttons_path, 'w', encoding='utf-8') as f:
+            f.write(buttons_content)
+        logger.info(f"Created domain buttons at: {buttons_path}")
+    except Exception as e:
+        logger.error(f"Error creating domain buttons: {str(e)}")
+
 if __name__ == "__main__":
     create_templates()
+    create_domain_buttons()
     logger.info("Template creation complete")

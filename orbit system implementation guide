@@ -1,162 +1,135 @@
-ORBIT System Implementation Guide
-This guide will help you set up the ORBIT system with Python Watchdog to automatically manage your knowledge architecture in Obsidian.
-Step 1: Create Required Directories
-First, let's make sure we have the right directory structure:
+Comprehensive ORBIT System Implementation Guide
+This guide details the implementation of the enhanced ORBIT system, addressing all your requirements and concerns.
 
-Create an ORBIT_work directory in your vault to store the scripts:
-mkdir -p /Users/austinavent/Library/CloudStorage/Dropbox/Areas/DASR/ORBIT_work
+System Features
+Correct Vault Path: Fixed to /Users/austinavent/Library/CloudStorage/Dropbox/Areas/DASR/DASR
+Complete Domain List: Added all domains from 000-Origins to 900-Meta_resources
+Template Syntax: Updated to work with Templater plugin
+Hidden Inbox: Using .0-inbox for hidden inbox folders
+Immediate Project Creation: Creates project directories as soon as you specify orbit relationships
+Delayed File Moving: Waits 5 minutes before moving files to prevent losing changes
+Directory as Dashboard: Domain and project directories serve as dashboards
+Bidirectional Relationships: Both orbits and satellites are properly maintained
+Create Buttons: Added button templates for creating new notes and projects
+Customizable Wait Time: MIN_FILE_AGE variable in Config for easy adjustment
+Installation
+1. Install Required Software
+bash
+pip install watchdog pyyaml
+2. Create Directory Structure
+bash
+# Create a directory for scripts and templates
+mkdir -p "/Users/austinavent/Library/CloudStorage/Dropbox/Areas/DASR/DASR/ORBIT_work"
+mkdir -p "/Users/austinavent/Library/CloudStorage/Dropbox/Areas/DASR/DASR/templates"
+3. Install Templates
+Save the final-templater-templates.py script to the ORBIT_work directory and run:
 
-Create a templates directory:
-mkdir -p /Users/austinavent/Library/CloudStorage/Dropbox/Areas/DASR/templates
+bash
+cd "/Users/austinavent/Library/CloudStorage/Dropbox/Areas/DASR/DASR/ORBIT_work"
+python final-templater-templates.py
+This creates:
 
+Templates that work with Templater
+A navigation note with buttons for all domains
+Additional templates for creating notes from dashboards
+4. Install the Watchdog Script
+Save the final-orbit-implementation.py as orbit_watchdog.py in the ORBIT_work directory.
 
-Step 2: Set Up the Template Files
+5. Install Obsidian Plugins
+For the best experience, install these plugins:
 
-Create the template creation script:
-
-Save create-templates-improved.py to your ORBIT_work directory
-Make sure the VAULT_PATH variable is set correctly
-
-
-Run the template creation script:
-cd /Users/austinavent/Library/CloudStorage/Dropbox/Areas/DASR/ORBIT_work
-python create-templates-improved.py
-
-
-Step 3: Set Up Domain Structure
-
-Create the debugging script:
-
-Save orbit-debug-improved.py to your ORBIT_work directory
-Make sure the VAULT_PATH variable is set correctly
-
-
-Run the script to create domain folders:
-python orbit-debug-improved.py create-domains
-
-
-Step 4: Set Up the Watchdog Script
-
-Save the fixed watchdog script:
-
-Save orbit-watchdog-fixed.py as orbit_watchdog.py in your ORBIT_work directory
-Make sure the VAULT_PATH in the Config class is correct
-
-
-Test the script by running it:
+Templater: For dynamic template filling
+Buttons: For clickable buttons in notes
+Dataview: For queries and dashboards
+6. Run the Watchdog
+bash
+cd "/Users/austinavent/Library/CloudStorage/Dropbox/Areas/DASR/DASR/ORBIT_work"
 python orbit_watchdog.py
+How the System Works
+Directory Structure
+DASR/
+├── 000-Origins/                 # Domain folder
+│   ├── .0-inbox/                # Hidden inbox
+│   │   ├── floating-project/    # Unnumbered project
+│   │   │   ├── 0-inbox/         # Project inbox
+│   │   │   ├── 9-source/        # Project sources
+│   │   │   └── ...
+│   │   └── ...
+│   ├── 010-project/             # Numbered project
+│   │   ├── 0-inbox/
+│   │   ├── 9-source/
+│   │   └── ...
+│   └── Origins.md               # Domain dashboard
+├── ...
+└── ORBIT-Navigation.md          # Domain navigation buttons
+Creating Notes and Projects
+1. Using Direct Creation
+Click the "+New Project" or "+New Note" buttons on dashboards
+This pre-fills the orbit relationships automatically
+2. Manual Creation
+Create a note anywhere
+Add domain and orbit relationships in the frontmatter
+Project directories are created immediately
+The note is moved after 5 minutes
+How Relationships Work
+The system handles three types of relationships:
 
-
-Step 5: Troubleshooting Existing Files
-If you have issues with existing files, you can use the debugging script to fix them:
-
-Check YAML syntax:
-python orbit-debug-improved.py check-yaml --file path/to/file.md
-
-Fix YAML issues:
-python orbit-debug-improved.py fix-yaml --file path/to/file.md
-
-Check overall structure:
-python orbit-debug-improved.py check-structure
-
-
-Common Issues and Solutions
-Template Placeholders Not Being Replaced
-If you see placeholders like PROJECT_TITLE or CURRENT_DATE in your notes:
-
-Use the debug script to fix the file:
-python orbit-debug-improved.py fix-yaml --file path/to/file.md
-
-Or manually edit the file and replace placeholders with actual values.
-
-Error: Cannot Determine Domain
-If you see errors like "Cannot determine domain for orbit: X":
-
-Make sure the domain is specified in the Config.DOMAINS dictionary
-Add a domain property to your note's frontmatter
-Make sure the orbit target exists or is a valid project name
-
-Notes Not Moving to Correct Location
-If notes aren't moving to the expected location:
-
-Check if the project directory exists
-Verify that the orbit relationships are correctly specified
-Look for any error messages in the log
-
-Usage Examples
-Creating a New Note that Orbits a Project
-md---
-type: dust
-created: 2025-04-16
+Domain Relationships: Where a project belongs in the hierarchy
+yaml
 domain: 200-Health
-orbits: pelvic health
----
+Orbit Relationships: What projects a note contributes to
+yaml
+orbits: [pelvic health, biomechanics]
+Satellite Relationships: What notes contribute to a project
+yaml
+satellites: [glute bridges, pelvic floor exercises]
+Exact Matching for Orbits
+When you add an orbit relationship to a note:
 
-# Glute Bridges
+The system first checks for exact matches by name (case-insensitive)
+If found, it adds the note as a satellite to that project
+If not found, it creates a new project with that name
+If multiple matches exist, it prioritizes the first match
+This means you can orbit "arm" and it will find the project named "Arm".
 
-Notes about glute bridges...
-Creating a Project with Satellites
-md---
-type: project
-created: 2025-04-16
-domain: 200-Health
-satellites:
-  - feet
-  - ankles
----
+Customization Options
+Adjusting the File Processing Delay
+Change MIN_FILE_AGE in the Config class to adjust how long the system waits before moving files:
 
-# Legs
+python
+# Minimum age of file before MOVING (in minutes)
+MIN_FILE_AGE = 5  # Change to desired number of minutes
+Adding New Domains
+Edit the DOMAINS dictionary in the Config class:
 
-Project about legs...
-Creating a Note that Orbits Multiple Projects
-md---
-type: dust
-created: 2025-04-16
-domain: 200-Health
-orbits:
-  - pelvic health
-  - core strength
-direct: pelvic health
----
+python
+DOMAINS = {
+    "000": "Origins",
+    # Add new domains here
+    "999": "New_Domain"
+}
+Modifying Templates
+Edit templates in the /templates directory to change:
 
-# Transverse Abdominis
+Default frontmatter properties
+Dashboard layouts
+Button texts and behaviors
+Testing and Troubleshooting
+Testing the System
+Project Creation Test:
+Create a new note with an orbit relationship
+Verify project directories are created immediately
+Check that bidirectional relationships are established
+File Movement Test:
+Create and edit a note for a few minutes
+Verify it moves to the correct location after 5 minutes
+Confirm no changes are lost
+Common Issues
+Template Syntax Errors
+Problem: If you see errors about {{date}} or other template variables:
 
-Notes about the transverse abdominis muscle...
-Starting the Watchdog Automatically
-To have the watchdog start automatically when you open Obsidian, you can:
-On macOS:
-Create a Launch Agent:
+Solution:
 
-Create a file at ~/Library/LaunchAgents/com.orbit.watchdog.plist:
-
-xml<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>Label</key>
-    <string>com.orbit.watchdog</string>
-    <key>ProgramArguments</key>
-    <array>
-        <string>/usr/bin/python3</string>
-        <string>/Users/austinavent/Library/CloudStorage/Dropbox/Areas/DASR/ORBIT_work/orbit_watchdog.py</string>
-    </array>
-    <key>RunAtLoad</key>
-    <true/>
-    <key>KeepAlive</key>
-    <true/>
-    <key>StandardOutPath</key>
-    <string>/Users/austinavent/Library/CloudStorage/Dropbox/Areas/DASR/ORBIT_work/orbit.log</string>
-    <key>StandardErrorPath</key>
-    <string>/Users/austinavent/Library/CloudStorage/Dropbox/Areas/DASR/ORBIT_work/orbit-error.log</string>
-</dict>
-</plist>
-
-Load the service:
-
-bashlaunchctl load ~/Library/LaunchAgents/com.orbit.watchdog.plist
-Need Help?
-If you encounter any issues:
-
-Check the log file for error messages
-Use the debugging tool to diagnose problems
-Try recreating the templates and restarting the watchdog
+Use the Templater syntax <% tp.date.now("YYYY-MM-DD") %> instead
+Or remove created date from frontmatter if not needed for dataview
+Watchdog Not Finding
