@@ -11,7 +11,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Configuration - update this with your vault path
-VAULT_PATH = "/Users/austinavent/Library/CloudStorage/Dropbox/Areas/DASR"
+VAULT_PATH = "/Users/austinavent/Library/CloudStorage/Dropbox/Areas/DASR/DASR"
 
 # Available domains for dropdown selection
 DOMAINS = {

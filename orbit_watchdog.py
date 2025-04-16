@@ -17,10 +17,9 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Configuration
+VAULT_PATH = "/Users/austinavent/Library/CloudStorage/Dropbox/Areas/DASR/DASR"
+
 class Config:
-    # Set this to your Obsidian vault path
-    VAULT_PATH = "/Users/austinavent/Library/CloudStorage/Dropbox/Areas/DASR"
-    
     # Domain folders (hundreds)
     DOMAINS = {
         "000": "Origins",   
@@ -60,11 +59,14 @@ class Config:
 
 class OrbitSystem:
     def __init__(self, vault_path):
-        self.vault_path = Path(vault_path)
-        # Load templates first so they're available for domain creation
-        self.templates = self._load_templates()
-        # Then load domains
+        self.vault_path = vault_path
+        self.templates = {}
         self.domains = self._load_domains()
+        
+        # Ensure vault path exists
+        if not os.path.exists(self.vault_path):
+            os.makedirs(self.vault_path)
+            logger.info(f"Created vault directory: {self.vault_path}")
     
     def _load_templates(self):
         """Load template files"""
@@ -847,7 +849,7 @@ class OrbitEventHandler(FileSystemEventHandler):
 
 def main():
     # Get vault path from config
-    vault_path = Config.VAULT_PATH
+    vault_path = VAULT_PATH
     
     if not os.path.exists(vault_path):
         logger.error(f"Vault path does not exist: {vault_path}")
