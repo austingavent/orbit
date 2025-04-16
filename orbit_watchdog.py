@@ -270,67 +270,24 @@ LIMIT 10
         return domains
     
     def _create_domain_dashboard(self, domain_dir, domain_name):
-        """Create a domain dashboard file"""
+        """Create domain directory structure without markdown files"""
+        # Create hidden inbox if it doesn't exist
+        inbox_path = os.path.join(domain_dir, Config.INBOX_DIR)
+        if not os.path.exists(inbox_path):
+            os.makedirs(inbox_path)
+            logger.info(f"Created domain inbox directory: {inbox_path}")
+        
+        # Get template
+        template = self.templates.get('domain', '')
+        if not template:
+            logger.warning("Domain template not found")
+            return
+        
+        # Create dashboard file path
         dashboard_path = os.path.join(domain_dir, f"{domain_name}.md")
         if os.path.exists(dashboard_path):
             return
             
-        template = self.templates.get('domain', '')
-        if not template:
-            template = """---
-type: domain
-created: <% tp.date.now("YYYY-MM-DD") %>
----
-
-# DOMAIN_NAME Dashboard
-
-## Overview
-
-Main dashboard for DOMAIN_NAME domain.
-
-## Designated Projects
-
-```dataview
-TABLE satellites as "Sub-Projects", created
-FROM "DOMAIN_PATH"
-WHERE type = "project" AND contains(file.folder, "DOMAIN_PATH")
-SORT file.name ASC
-```
-
-## Inbox Projects
-
-```dataview
-TABLE orbits as "Parent Projects", created
-FROM "DOMAIN_PATH/.0-inbox"
-WHERE type = "project"
-SORT file.name ASC
-```
-
-## Notes in Inbox
-
-```dataview
-TABLE type, orbits as "Projects", created
-FROM "DOMAIN_PATH/.0-inbox"
-WHERE type != "project" AND type != "domain"
-SORT created DESC
-LIMIT 10
-```
-
-## Recent Notes in Projects
-
-```dataview
-TABLE type, orbits as "Projects", created
-FROM "DOMAIN_PATH"
-WHERE type != "project" AND type != "domain"
-SORT created DESC
-LIMIT 10
-```
-
-## Create New Project
-
-- [[Creating a new project|+New Project]]
-"""
-        
         # Perform template substitution
         content = template
         content = content.replace('DOMAIN_NAME', domain_name)
@@ -462,18 +419,31 @@ LIMIT 10
         # Check if this is a valid domain
         domain_folder = None
         domain_number = None
+        domain_name = None
         
-        # Check if domain_value is in format "200-Health" or just "Health"
-        domain_parts = domain_value.split('-', 1) if '-' in domain_value else [None, domain_value]
+        # Handle different domain formats:
+        # 1. "200-Health" (full format)
+        # 2. "Health" (just name)
+        # 3. "200" (just number)
         
-        if domain_parts[0] and domain_parts[0].isdigit():
+        if '-' in domain_value:
             # Format is "200-Health"
-            domain_number = domain_parts[0]
-            domain_name = domain_parts[1]
-            domain_folder = f"{domain_number}-{domain_name}"
+            domain_parts = domain_value.split('-', 1)
+            if domain_parts[0] and domain_parts[0].isdigit():
+                domain_number = domain_parts[0]
+                domain_name = domain_parts[1]
+                domain_folder = f"{domain_number}-{domain_name}"
+        elif domain_value.isdigit() and len(domain_value) == 3:
+            # Format is just "200" - need to find corresponding name
+            domain_number = domain_value
+            for num, name in self.domains.items():
+                if num == domain_number:
+                    domain_name = name
+                    domain_folder = f"{domain_number}-{domain_name}"
+                    break
         else:
             # Format is just "Health" - need to find corresponding number
-            domain_name = domain_parts[1] if len(domain_parts) > 1 else domain_parts[0]
+            domain_name = domain_value
             for num, name in self.domains.items():
                 if name.lower() == domain_name.lower():
                     domain_number = num
@@ -481,9 +451,9 @@ LIMIT 10
                     break
         
         if not domain_folder:
-            logger.warning(f"Invalid domain '{domain_value}' in {file_path}")
+            logger.warning(f"Invalid domain '{domain_value}' in {file_path}. Available domains: {', '.join([f'{k}-{v}' for k,v in self.domains.items()])}")
             return
-            
+        
         # Ensure domain folder exists
         domain_path = os.path.join(self.vault_path, domain_folder)
         if not os.path.exists(domain_path):
@@ -492,12 +462,28 @@ LIMIT 10
             
             # Create hidden inbox
             inbox_path = os.path.join(domain_path, Config.INBOX_DIR)
-            os.makedirs(inbox_path)
+            os.makedirs(inbox_path, exist_ok=True)
             logger.info(f"Created inbox directory: {inbox_path}")
             
             # Create domain dashboard
             self._create_domain_dashboard(domain_path, domain_name)
-    
+
+    def create_domain_landing_pages(self):
+        """Create landing pages (directories only) for all domains"""
+        for domain_num, domain_name in self.domains.items():
+            domain_folder = f"{domain_num}-{domain_name}"
+            domain_path = os.path.join(self.vault_path, domain_folder)
+            
+            # Create domain directory if it doesn't exist
+            if not os.path.exists(domain_path):
+                os.makedirs(domain_path)
+                logger.info(f"Created domain landing page: {domain_path}")
+                
+                # Create hidden inbox
+                inbox_path = os.path.join(domain_path, Config.INBOX_DIR)
+                os.makedirs(inbox_path, exist_ok=True)
+                logger.info(f"Created inbox directory: {inbox_path}")
+
     def _create_orbit_projects(self, file_path, frontmatter):
         """Create project directories for orbit relationships without moving the file"""
         orbits = frontmatter.get('orbits', [])
@@ -1044,7 +1030,7 @@ New dust note orbiting PARENT_PROJECT.
         project_name = os.path.basename(project_path)
         
         # Assign a project number
-        project_number = self.assign_project_number(domain_folder)
+        project_number = self.assign_project_number(domain_folder, project_name)
         new_project_name = f"{project_number}-{project_name}"
         
         # Create new project path
@@ -1113,7 +1099,6 @@ class OrbitEventHandler(FileSystemEventHandler):
         if not event.is_directory and event.src_path.endswith('.md'):
             self.orbit_system.process_file(event.src_path)
 
-
 def main():
     # Get vault path from config
     vault_path = Config.VAULT_PATH
@@ -1124,6 +1109,9 @@ def main():
         
     # Initialize the ORBIT system
     orbit_system = OrbitSystem(vault_path)
+    
+    # Create domain landing pages (directories only)
+    orbit_system.create_domain_landing_pages()
     
     # Create event handler and observer
     event_handler = OrbitEventHandler(orbit_system)
@@ -1142,7 +1130,6 @@ def main():
         observer.stop()
         
     observer.join()
-
 
 if __name__ == "__main__":
     main()

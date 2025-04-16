@@ -105,7 +105,7 @@ def analyze_yaml_issues(yaml_str):
     else:
         print("No common YAML syntax issues detected. The error might be more complex.")
 
-def fix_yaml_issues(yaml_str):
+def fix_yaml_issues(yaml_str):  
     """Attempt to fix common YAML syntax issues"""
     # Fix unclosed brackets in satellites or orbits lists
     yaml_str = re.sub(r'satellites: *{([^}]*?), r'satellites: [\1]', yaml_str)
