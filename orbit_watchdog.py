@@ -21,8 +21,9 @@ class Config:
     # Set this to your Obsidian vault path
     VAULT_PATH = "/Users/austinavent/Library/CloudStorage/Dropbox/Areas/DASR"
     
+    # Domain folders (hundreds)
     DOMAINS = {
-        "000": "Origins",
+        "000": "Origins",   
         "100": "Self",
         "200": "Health",
         "300": "Philosophy",
@@ -32,7 +33,9 @@ class Config:
         "700": "Environment",
         "800": "Work_systems",
         "900": "Meta_resources",
+        # Add more domains as needed
     }
+    
     # Project numbering increment
     PROJECT_INCREMENT = 10
     
@@ -58,112 +61,10 @@ class Config:
 class OrbitSystem:
     def __init__(self, vault_path):
         self.vault_path = Path(vault_path)
-        self.domains = self._load_domains()
+        # Load templates first so they're available for domain creation
         self.templates = self._load_templates()
-    
-    def _load_domains(self):
-        """Load all domain directories from the vault"""
-        domains = {}
-        
-        # First add configured domains
-        for domain_num, domain_name in Config.DOMAINS.items():
-            domains[domain_num] = domain_name
-            
-            # Create domain directory if it doesn't exist
-            domain_dir = os.path.join(self.vault_path, f"{domain_num}-{domain_name}")
-            if not os.path.exists(domain_dir):
-                os.makedirs(domain_dir)
-                logger.info(f"Created domain directory: {domain_dir}")
-                
-                # Create domain dashboard
-                self._create_domain_dashboard(domain_dir, domain_name)
-            
-            # Ensure hidden inbox exists
-            inbox_path = os.path.join(domain_dir, Config.HIDDEN_INBOX)
-            if not os.path.exists(inbox_path):
-                os.makedirs(inbox_path)
-                logger.info(f"Created inbox directory: {inbox_path}")
-        
-        # Then scan for any additional domain directories that might exist
-        for item in os.listdir(self.vault_path):
-            if os.path.isdir(os.path.join(self.vault_path, item)) and re.match(r'^\d{3}-', item):
-                domain_number = item.split('-')[0]
-                domain_name = item.split('-')[1]
-                
-                # Add to domains if not already there
-                if domain_number not in domains:
-                    domains[domain_number] = domain_name
-                
-                # Ensure hidden inbox exists
-                inbox_path = os.path.join(self.vault_path, item, Config.HIDDEN_INBOX)
-                if not os.path.exists(inbox_path):
-                    os.makedirs(inbox_path)
-                    logger.info(f"Created inbox directory: {inbox_path}")
-        
-        return domains
-    
-    def _create_domain_dashboard(self, domain_dir, domain_name):
-        """Create a domain dashboard file"""
-        dashboard_path = os.path.join(domain_dir, f"{domain_name}.md")
-        if os.path.exists(dashboard_path):
-            return
-            
-        template = self.templates.get('domain', '')
-        if not template:
-            template = """---
-type: domain
-created: CURRENT_DATE
----
-
-# DOMAIN_NAME Dashboard
-
-## Overview
-
-Main dashboard for DOMAIN_NAME domain.
-
-## Designated Projects
-
-```dataview
-TABLE satellites as "Sub-Projects", created
-FROM "DOMAIN_PATH"
-WHERE type = "project" AND contains(file.folder, "DOMAIN_PATH")
-SORT file.name ASC
-```
-
-## Inbox Projects
-
-```dataview
-TABLE orbits as "Parent Projects", created
-FROM "DOMAIN_PATH/.0-inbox"
-WHERE type = "project"
-SORT file.name ASC
-```
-
-## Recent Notes
-
-```dataview
-TABLE type, orbits as "Projects", created
-FROM "DOMAIN_PATH"
-WHERE type != "project" AND type != "domain"
-SORT created DESC
-LIMIT 10
-```
-"""
-        
-        # Set values for template substitution
-        current_date = datetime.now().strftime('%Y-%m-%d')
-        
-        # Perform template substitution
-        content = template
-        content = content.replace('DOMAIN_NAME', domain_name)
-        content = content.replace('CURRENT_DATE', current_date)
-        content = content.replace('DOMAIN_PATH', os.path.basename(domain_dir))
-        
-        # Write the file
-        with open(dashboard_path, 'w', encoding='utf-8') as f:
-            f.write(content)
-            
-        logger.info(f"Created domain dashboard: {dashboard_path}")
+        # Then load domains
+        self.domains = self._load_domains()
     
     def _load_templates(self):
         """Load template files"""
@@ -299,6 +200,110 @@ LIMIT 10
                 templates[template_type] = default_templates.get(template_type, '')
         
         return templates
+    
+    def _load_domains(self):
+        """Load all domain directories from the vault"""
+        domains = {}
+        
+        # First add configured domains
+        for domain_num, domain_name in Config.DOMAINS.items():
+            domains[domain_num] = domain_name
+            
+            # Create domain directory if it doesn't exist
+            domain_dir = os.path.join(self.vault_path, f"{domain_num}-{domain_name}")
+            if not os.path.exists(domain_dir):
+                os.makedirs(domain_dir)
+                logger.info(f"Created domain directory: {domain_dir}")
+                
+                # Create domain dashboard
+                self._create_domain_dashboard(domain_dir, domain_name)
+            
+            # Ensure hidden inbox exists
+            inbox_path = os.path.join(domain_dir, Config.HIDDEN_INBOX)
+            if not os.path.exists(inbox_path):
+                os.makedirs(inbox_path)
+                logger.info(f"Created inbox directory: {inbox_path}")
+        
+        # Then scan for any additional domain directories that might exist
+        for item in os.listdir(self.vault_path):
+            if os.path.isdir(os.path.join(self.vault_path, item)) and re.match(r'^\d{3}-', item):
+                domain_number = item.split('-')[0]
+                domain_name = item.split('-')[1]
+                
+                # Add to domains if not already there
+                if domain_number not in domains:
+                    domains[domain_number] = domain_name
+                
+                # Ensure hidden inbox exists
+                inbox_path = os.path.join(self.vault_path, item, Config.HIDDEN_INBOX)
+                if not os.path.exists(inbox_path):
+                    os.makedirs(inbox_path)
+                    logger.info(f"Created inbox directory: {inbox_path}")
+        
+        return domains
+    
+    def _create_domain_dashboard(self, domain_dir, domain_name):
+        """Create a domain dashboard file"""
+        dashboard_path = os.path.join(domain_dir, f"{domain_name}.md")
+        if os.path.exists(dashboard_path):
+            return
+            
+        template = self.templates.get('domain', '')
+        if not template:
+            template = """---
+type: domain
+created: CURRENT_DATE
+---
+
+# DOMAIN_NAME Dashboard
+
+## Overview
+
+Main dashboard for DOMAIN_NAME domain.
+
+## Designated Projects
+
+```dataview
+TABLE satellites as "Sub-Projects", created
+FROM "DOMAIN_PATH"
+WHERE type = "project" AND contains(file.folder, "DOMAIN_PATH")
+SORT file.name ASC
+```
+
+## Inbox Projects
+
+```dataview
+TABLE orbits as "Parent Projects", created
+FROM "DOMAIN_PATH/.0-inbox"
+WHERE type = "project"
+SORT file.name ASC
+```
+
+## Recent Notes
+
+```dataview
+TABLE type, orbits as "Projects", created
+FROM "DOMAIN_PATH"
+WHERE type != "project" AND type != "domain"
+SORT created DESC
+LIMIT 10
+```
+"""
+        
+        # Set values for template substitution
+        current_date = datetime.now().strftime('%Y-%m-%d')
+        
+        # Perform template substitution
+        content = template
+        content = content.replace('DOMAIN_NAME', domain_name)
+        content = content.replace('CURRENT_DATE', current_date)
+        content = content.replace('DOMAIN_PATH', os.path.basename(domain_dir))
+        
+        # Write the file
+        with open(dashboard_path, 'w', encoding='utf-8') as f:
+            f.write(content)
+            
+        logger.info(f"Created domain dashboard: {dashboard_path}")
     
     def _get_all_directories(self):
         """Get all directories in the vault for orbit relationship tracking"""

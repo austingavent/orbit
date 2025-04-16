@@ -1,0 +1,162 @@
+ORBIT System Implementation Guide
+This guide will help you set up the ORBIT system with Python Watchdog to automatically manage your knowledge architecture in Obsidian.
+Step 1: Create Required Directories
+First, let's make sure we have the right directory structure:
+
+Create an ORBIT_work directory in your vault to store the scripts:
+mkdir -p /Users/austinavent/Library/CloudStorage/Dropbox/Areas/DASR/ORBIT_work
+
+Create a templates directory:
+mkdir -p /Users/austinavent/Library/CloudStorage/Dropbox/Areas/DASR/templates
+
+
+Step 2: Set Up the Template Files
+
+Create the template creation script:
+
+Save create-templates-improved.py to your ORBIT_work directory
+Make sure the VAULT_PATH variable is set correctly
+
+
+Run the template creation script:
+cd /Users/austinavent/Library/CloudStorage/Dropbox/Areas/DASR/ORBIT_work
+python create-templates-improved.py
+
+
+Step 3: Set Up Domain Structure
+
+Create the debugging script:
+
+Save orbit-debug-improved.py to your ORBIT_work directory
+Make sure the VAULT_PATH variable is set correctly
+
+
+Run the script to create domain folders:
+python orbit-debug-improved.py create-domains
+
+
+Step 4: Set Up the Watchdog Script
+
+Save the fixed watchdog script:
+
+Save orbit-watchdog-fixed.py as orbit_watchdog.py in your ORBIT_work directory
+Make sure the VAULT_PATH in the Config class is correct
+
+
+Test the script by running it:
+python orbit_watchdog.py
+
+
+Step 5: Troubleshooting Existing Files
+If you have issues with existing files, you can use the debugging script to fix them:
+
+Check YAML syntax:
+python orbit-debug-improved.py check-yaml --file path/to/file.md
+
+Fix YAML issues:
+python orbit-debug-improved.py fix-yaml --file path/to/file.md
+
+Check overall structure:
+python orbit-debug-improved.py check-structure
+
+
+Common Issues and Solutions
+Template Placeholders Not Being Replaced
+If you see placeholders like PROJECT_TITLE or CURRENT_DATE in your notes:
+
+Use the debug script to fix the file:
+python orbit-debug-improved.py fix-yaml --file path/to/file.md
+
+Or manually edit the file and replace placeholders with actual values.
+
+Error: Cannot Determine Domain
+If you see errors like "Cannot determine domain for orbit: X":
+
+Make sure the domain is specified in the Config.DOMAINS dictionary
+Add a domain property to your note's frontmatter
+Make sure the orbit target exists or is a valid project name
+
+Notes Not Moving to Correct Location
+If notes aren't moving to the expected location:
+
+Check if the project directory exists
+Verify that the orbit relationships are correctly specified
+Look for any error messages in the log
+
+Usage Examples
+Creating a New Note that Orbits a Project
+md---
+type: dust
+created: 2025-04-16
+domain: 200-Health
+orbits: pelvic health
+---
+
+# Glute Bridges
+
+Notes about glute bridges...
+Creating a Project with Satellites
+md---
+type: project
+created: 2025-04-16
+domain: 200-Health
+satellites:
+  - feet
+  - ankles
+---
+
+# Legs
+
+Project about legs...
+Creating a Note that Orbits Multiple Projects
+md---
+type: dust
+created: 2025-04-16
+domain: 200-Health
+orbits:
+  - pelvic health
+  - core strength
+direct: pelvic health
+---
+
+# Transverse Abdominis
+
+Notes about the transverse abdominis muscle...
+Starting the Watchdog Automatically
+To have the watchdog start automatically when you open Obsidian, you can:
+On macOS:
+Create a Launch Agent:
+
+Create a file at ~/Library/LaunchAgents/com.orbit.watchdog.plist:
+
+xml<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.orbit.watchdog</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/python3</string>
+        <string>/Users/austinavent/Library/CloudStorage/Dropbox/Areas/DASR/ORBIT_work/orbit_watchdog.py</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/Users/austinavent/Library/CloudStorage/Dropbox/Areas/DASR/ORBIT_work/orbit.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/austinavent/Library/CloudStorage/Dropbox/Areas/DASR/ORBIT_work/orbit-error.log</string>
+</dict>
+</plist>
+
+Load the service:
+
+bashlaunchctl load ~/Library/LaunchAgents/com.orbit.watchdog.plist
+Need Help?
+If you encounter any issues:
+
+Check the log file for error messages
+Use the debugging tool to diagnose problems
+Try recreating the templates and restarting the watchdog
