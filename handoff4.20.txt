@@ -1,0 +1,123 @@
+ORBIT System - Handoff Document (April 20, 2025)
+
+Project Goal:
+Implement an automated system within an Obsidian vault (synced via Nextcloud) where a note's directory location and key metadata are automatically managed based on its YAML frontmatter, primarily the orbit (parent link) and stage (development status) properties.
+
+Core Concepts:
+
+    YAML Driven: Note properties dictate organization.
+    Hierarchy: Notes (satellites) live within the directory structure of their parent note (orbit).
+    Staging: A note's stage determines its specific sub-directory within its parent's structure (.inbox, seedlings, or the main directory).
+    Layering: Directory structure depth implies conceptual layers (Core, Field, Vector, Locus, Trace, Dust), which are reflected in derived YAML properties.
+    Automation: A Python script (orbit_manager.py) orchestrated by a file watcher (watch_orbit_vault.py) enforces these rules.
+
+Key Components & Decisions:
+
+    Tools: Python (using PyYAML, Watchdog), Obsidian (potentially with Templater, QuickAdd, Folder Note Core plugins), Nextcloud (for sync).
+    Configuration: Managed via orbit_config.py.
+    Core Script: orbit_manager.py (contains parsing and file management logic).
+    Watcher Script: watch_orbit_vault.py (to be created, triggers the manager).
+    Directory Numbering: Variable-length numeric prefixes based on layer depth (e.g., L1=1, L2=10, L3=100).
+    YAML Properties:
+        Primary: object (source, project, note...), stage (0, 1, 2-8, 9), orbit ([[Parent Track Name]]).
+        Derived/Managed: layer (Core, Field...), layer_number (1-6), track (parent dir name). Script derives these from path.
+    Directory Structure:
+        VAULT_ROOT/X-CoreName/
+        VAULT_ROOT/X-CoreName/XX-FieldName/
+        VAULT_ROOT/.../XXX-TrackName/
+        Stage Subdirs: Inside Track dir: .inbox (Stage 0), seedlings (Stage 1). Stages 2-8 live directly in Track dir. Stage 9 (e.g., finalized) also in Track dir or its own subdir per config.
+        Source: VAULT_ROOT/X-CoreName/source/ (Per-Core source folder).
+        Fallback: VAULT_ROOT/0-Origins/.inbox/ (or configured path) for unfiled notes.
+    Folder Creation: .inbox created with Track. seedlings and source/ created on demand when first relevant note arrives.
+    Landing Pages: Use Index Note approach (e.g., _index.md inside Track directory), managed via templates and potentially Folder Note Core plugin.
+    Default Stages:
+        Orbit/Track Note (via template): stage: 1 (Seedlings) - Configurable.
+        Satellite Note (via template): stage: 0 (Inbox) - Configurable.
+
+Current Status:
+
+    orbit_config.py: Created, reflects final decisions. Needs VAULT_PATH updated by user.
+    orbit_manager.py: Skeleton created with config loading, logging, and YAML parsing function (parse_note_frontmatter). Handler methods (handle_source_note, handle_regular_note, handle_unfiled_note) are placeholders.
+
+Next Steps (Implementation Roadmap):
+
+    Phase 1 (Continued): Implement Core Logic Handlers in orbit_manager.py.
+        handle_source_note: Move source notes to X-CoreName/source/.
+        handle_unfiled_note: Move notes without orbit to fallback inbox.
+        handle_regular_note: Implement full logic (find parent, calc path, derive metadata, update YAML, move file). Requires helper functions for path finding and metadata derivation.
+    Phase 2: Implement Watchdog (watch_orbit_vault.py).
+        Create script using watchdog library.
+        Import and use the orbit_processor instance from orbit_manager.py.
+        Call orbit_processor.process_note_file() on detected changes (with debouncing).
+    Phase 3: Implement Obsidian Templates & UI.
+        Create Templater/QuickAdd templates for "New Track/Locus", "New Satellite", "New Source".
+        Create command/button for "Set Stage".
+    Testing & Refinement: Thoroughly test workflows, edge cases, and debug.
+
+How to Implement and Use the Code
+
+Here's a step-by-step guide for getting this running in your environment:
+
+    Save the Files:
+        Save the final code for orbit_config.py provided in the previous step.
+        Save the final code for orbit_manager.py (with the setup and parsing logic) provided in the previous step.
+        Place both files in the same directory on your Linux iMac. This directory will be where you run the scripts from.
+
+    Configure orbit_config.py:
+        CRITICAL: Open orbit_config.py in a text editor. Find the line VAULT_PATH = "..." and replace the example path with the correct, absolute path to your Obsidian vault's root directory as it exists on your iMac (likely within your Nextcloud sync folder).
+        Review other settings (Stage names, default stages, fallback path, index note name, log file name) and adjust if necessary, but the defaults should match our discussion. Ensure the FALLBACK_DIR_RELATIVE path (e.g., 0-Origins/.inbox) exists within your vault or will be created.
+
+    Install Dependencies:
+        Open a terminal on your Linux iMac.
+        Navigate to the directory where you saved the Python files.
+        Ensure you have Python 3 installed.
+        Install the necessary libraries:
+        Bash
+
+    pip install PyYAML watchdog
+
+    (If you use a virtual environment, activate it first)
+
+Implement Handler Logic (Phase 1 Continued):
+
+    This is the next coding step. Open orbit_manager.py.
+    You (or the next AI assistant) need to fill in the Python code for the placeholder methods: handle_source_note, handle_regular_note, and handle_unfiled_note. This involves:
+        Writing functions to find parent directories based on [[Wikilink]] style orbit links.
+        Implementing the logic to calculate the target path based on stage.
+        Implementing the logic to derive layer properties from paths (using the variable numbering).
+        Using pathlib and os functions to create directories (mkdir) and move files (rename).
+        Reading/writing YAML (using yaml.safe_load and yaml.dump to potentially update metadata before moving, although modifying files automatically needs careful implementation).
+
+Implement Watchdog Script (Phase 2):
+
+    Create a new file, watch_orbit_vault.py.
+    Import time, watchdog.observers, watchdog.events, and importantly from orbit_manager import orbit_processor.
+    Set up the Observer and an event handler class (like OrbitEventHandler).
+    In the event handler's on_modified / on_created methods, call orbit_processor.process_note_file(event.src_path) after appropriate debouncing (using time.time() checks).
+    Include the if __name__ == "__main__": block to start the observer.
+
+Set up Obsidian Templates (Phase 3):
+
+    Create the .md template files within your vault (e.g., in a templates/ folder).
+    Use Obsidian's Templater or QuickAdd plugins to configure commands that use these templates to create new notes with the correct initial YAML (e.g., setting stage: 0 and prompting for orbit for satellites).
+
+Run the Watchdog:
+
+    Open a terminal, navigate to the script directory.
+    Run the watcher:
+    Bash
+
+        python watch_orbit_vault.py
+
+        Leave this terminal running in the background (you might use nohup, tmux, or systemd to run it persistently). It will now monitor your vault for changes and trigger the orbit_manager.py logic.
+
+    Test!
+        Create/edit notes using your templates and manually.
+        Change stage properties.
+        Modify orbit links.
+        Create source objects.
+        Check the log file (orbit_manager.log in the script directory) and the console output for errors or confirmation messages.
+        Verify files are moved to the correct .inbox, seedlings, source/, or fallback directories.
+        Verify derived YAML properties (layer, layer_number, track) are added/updated correctly (once that logic is implemented).
+
+This should give you or the next AI a clear path forward for implementing and running the system. Good luck!

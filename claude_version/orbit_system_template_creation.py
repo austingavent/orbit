@@ -134,51 +134,24 @@ created: <% tp.date.now("YYYY-MM-DD") %>
 
 # <% title %> Dashboard
 
-## Overview
-
-Main dashboard for <% title %> domain.
-
-## Designated Projects
+## Projects in <% title %> Domain
 
 ```dataview
-TABLE satellites as "Sub-Projects", created
+TABLE 
+  file.ctime as "Created",
+  file.mtime as "Modified",
+  satellites as "Sub-Notes"
 FROM "DOMAIN_PATH"
-WHERE type = "project" AND contains(file.folder, "DOMAIN_PATH")
-SORT file.name ASC
-```
-
-## Inbox Projects
-
-```dataview
-TABLE orbits as "Parent Projects", created
-FROM "DOMAIN_PATH/.0-inbox"
 WHERE type = "project"
 SORT file.name ASC
-```
 
-## Notes in Inbox
+TABLE 
+  type as "Type",
+  orbits as "Projects",
+  file.ctime as "Created"
+FROM "DOMAIN_PATH" OR "DOMAIN_PATH/.0-inbox"
+SORT file.name ASC
 
-```dataview
-TABLE type, orbits as "Projects", created
-FROM "DOMAIN_PATH/.0-inbox"
-WHERE type != "project" AND type != "domain"
-SORT created DESC
-LIMIT 10
-```
-
-## Recent Notes in Projects
-
-```dataview
-TABLE type, orbits as "Projects", created
-FROM "DOMAIN_PATH"
-WHERE type != "project" AND type != "domain"
-SORT created DESC
-LIMIT 10
-```
-
-## Create New Project
-
-- [[+New Project]]
 """,
     # Template for creating new dust notes from project dashboards
     "new_dust_template.md": """<%*
@@ -259,7 +232,7 @@ SORT file.ctime DESC
 ## Notes
 
 ```dataview
-TABLE type, file.ctime as Created
+TABLE type, file.ctime as Create 
 FROM "[[<% title %>]]/0-inbox"
 SORT file.ctime DESC
 ```
@@ -277,9 +250,9 @@ def create_templates():
     """Create template files in the vault"""
     template_dir = os.path.join(VAULT_PATH, "templates")
     
-    # Create templates directory if it doesn't exist
-    if not os.path.exists(template_dir):
-        os.makedirs(template_dir)
+    # Create templates directory if it mainesn't exist
+    if not os.path.exists(template_omair):
+        os.makeirs(template_dir)
         logger.info(f"Created templates directory: {template_dir}")
     
     # Create each template file
